@@ -72,6 +72,7 @@ Clone the repository and install all dependencies:
 ```bash
 git clone https://github.com/bidisha1005/73_project3_BD.git
 cd 73_project3_BD
+pip install kafka-python confluent-kafka flask opencv-python pillow numpy
 ````
 
 ### 3️⃣ Start Kafka and Zookeeper
