@@ -1,5 +1,5 @@
 from confluent_kafka import Producer, Consumer
-import cv2, numpy as np, json, base64
+import cv2, numpy as np, json, base64, time
 
 BROKER = "10.147.18.63:9092"  # Broker machine
 producer = Producer({'bootstrap.servers': BROKER})
@@ -23,7 +23,7 @@ def split_image(img_path, tile_size=512):
             tile_data = base64.b64encode(buffer).decode('utf-8')
             tiles.append({'x': x, 'y': y, 'data': tile_data})
 
-    print(f"🖼️ Image split into {len(tiles)} tiles ({w}×{h})")
+    print(f"\U0001f5bc\ufe0f Image split into {len(tiles)} tiles ({w}\u00d7{h})")
     return tiles, (w, h)
 
 # -----------------------------
@@ -31,63 +31,75 @@ def split_image(img_path, tile_size=512):
 # -----------------------------
 def acked(err, msg):
     if err is not None:
-        print(f"❌ Failed to deliver message: {err}")
+        print(f"\u274c Failed to deliver message: {err}")
     else:
-        print(f"✅ Tile delivered to {msg.topic()} [partition {msg.partition()}]")
+        print(f"\u2705 Tile delivered to {msg.topic()} [partition {msg.partition()}]")
 
 # -----------------------------
 # Publish tiles (Manual partition routing)
 # -----------------------------
-def publish_tiles(tiles, job_id=None):
+def publish_tiles(tiles, job_id):
     """Send tiles to correct Kafka partitions based on x-coordinate"""
+    print(f"\U0001f680 Starting Job ID: {job_id}")
     for i, tile in enumerate(tiles, 1):
-        if job_id:
-            tile['job_id'] = job_id
+        tile['job_id'] = job_id
 
-        # MANUAL PARTITIONING: left half → partition 0, right half → partition 1
+        # Manual partitioning: left \u2192 0, right \u2192 1
         partition = 0 if tile['x'] < 512 else 1
 
         producer.produce(
             topic='tasks',
             value=json.dumps(tile).encode('utf-8'),
-            partition=partition,       # ✅ explicit partition routing
+            partition=partition,
             callback=acked
         )
-        print(f"📤 Sent tile {i}/{len(tiles)} → partition {partition}")
+        print(f"\U0001f4e4 Sent tile {i}/{len(tiles)} \u2192 partition {partition}")
 
     producer.flush()
-    print(f"🎯 All {len(tiles)} tiles published to Kafka")
+    print(f"\U0001f3af All {len(tiles)} tiles published to Kafka for job {job_id}")
 
 # -----------------------------
 # Collect processed results
 # -----------------------------
-def collect_results(total_tiles, job_id=None):
+def collect_results(total_tiles, job_id):
     consumer = Consumer({
         'bootstrap.servers': BROKER,
-        'group.id': f'master-group-{job_id}' if job_id else 'master-group',
+        'group.id': f'master-group-{job_id}',
         'auto.offset.reset': 'earliest'
     })
     consumer.subscribe(['results'])
 
     processed = []
-    print(f"⏳ Waiting for {total_tiles} processed tiles...")
+    worker_count = {}
+    print(f"\u23f3 Waiting for {total_tiles} processed tiles for {job_id}...")
 
     while len(processed) < total_tiles:
         msg = consumer.poll(1.0)
         if msg is None:
             continue
         if msg.error():
-            print(f"❌ Consumer error: {msg.error()}")
+            print(f"\u274c Consumer error: {msg.error()}")
             continue
 
         try:
             tile = json.loads(msg.value().decode('utf-8'))
-            if job_id and tile.get('job_id') != job_id:
+            if tile.get('job_id') != job_id:
                 continue
+
+            x, y = tile['x'], tile['y']
+            worker = tile.get('worker_id', 'unknown')
+            print(f"\U0001f4e6 Tile ({x},{y}) processed by {worker}")
+
+            worker_count[worker] = worker_count.get(worker, 0) + 1
             processed.append(tile)
-            print(f"📥 Received {len(processed)}/{total_tiles} tiles")
+            print(f"\U0001f4e5 Job {job_id}: Received {len(processed)}/{total_tiles} tiles")
+
         except Exception as e:
-            print(f"⚠️ Error processing tile: {e}")
+            print(f"\u26a0\ufe0f Error processing tile: {e}")
+
+    print("\U0001f9fe Worker contribution summary:")
+    for worker, count in worker_count.items():
+        print(f"   \u2022 {worker}: {count} tile(s) processed")
 
     consumer.close()
     return processed
@@ -95,7 +107,7 @@ def collect_results(total_tiles, job_id=None):
 # -----------------------------
 # Reconstruct final image
 # -----------------------------
-def reconstruct_image(processed_tiles, size, output_path="output.jpg"):
+def reconstruct_image(processed_tiles, size, output_path):
     w, h = size
     final_img = np.zeros((h, w, 3), dtype=np.uint8)
 
@@ -108,7 +120,8 @@ def reconstruct_image(processed_tiles, size, output_path="output.jpg"):
         final_img[y:y+th, x:x+tw] = tile_img
 
     cv2.imwrite(output_path, final_img)
-    print(f"🎯 Final image reconstructed as {output_path}")
+    print(f"\U0001f3af Final image reconstructed as {output_path}")
+    print(f"\u2705 Job {output_path.split('/')[-1].replace('.jpg','')} complete!")
 
 # -----------------------------
 # Stand-alone usage
@@ -116,13 +129,12 @@ def reconstruct_image(processed_tiles, size, output_path="output.jpg"):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
-        print("Usage: python producer.py <image_path>")
+        print("Usage: python producer.py <image_path> [job_id]")
         sys.exit(1)
 
     img_path = sys.argv[1]
+    job_id = sys.argv[2] if len(sys.argv) > 2 else f"job_{int(time.time() * 1000)}"
     tiles, size = split_image(img_path)
-    publish_tiles(tiles, job_id="manual_split_test")
-    results = collect_results(len(tiles), job_id="manual_split_test")
-    reconstruct_image(results, size)
-    print("✅ Processing complete!")
-
+    publish_tiles(tiles, job_id=job_id)
+    results = collect_results(len(tiles), job_id=job_id)
+    reconstruct_image(results, size, f"outputs/{job_id}.jpg")

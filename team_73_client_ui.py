@@ -220,7 +220,7 @@ HTML_TEMPLATE = '''
 </head>
 <body>
     <div class="container">
-        <h1>🖼️ Distributed Image Processing Pipeline</h1>
+        <h1>\U0001f5bc\ufe0f Distributed Image Processing Pipeline</h1>
         
         <!-- Dashboard Stats -->
         <div class="dashboard">
@@ -258,7 +258,7 @@ HTML_TEMPLATE = '''
                 <div class="file-input-wrapper">
                     <input type="file" id="fileInput" name="file" accept="image/*" required>
                     <label for="fileInput" class="file-input-label">
-                        📁 Click to select an image or drag and drop
+                        \U0001f4c1 Click to select an image or drag and drop
                     </label>
                 </div>
                 <div id="selectedFileName"></div>
@@ -279,7 +279,7 @@ HTML_TEMPLATE = '''
             <!-- Result Section -->
             <div id="resultSection" style="display: none; margin-top: 20px;">
                 <div class="alert alert-success">
-                    ✅ Processing Complete!
+                    \u2705 Processing Complete!
                 </div>
                 <img id="resultImage" style="max-width: 100%; border-radius: 8px; margin: 15px 0;">
                 <a href="#" id="downloadLink" class="btn">Download Processed Image</a>
@@ -294,7 +294,7 @@ HTML_TEMPLATE = '''
         document.getElementById('fileInput').addEventListener('change', function(e) {
             const file = e.target.files[0];
             if (file) {
-                document.getElementById('selectedFileName').textContent = '📄 ' + file.name;
+                document.getElementById('selectedFileName').textContent = '\U0001f4c4 ' + file.name;
                 
                 // Preview image
                 const reader = new FileReader();
@@ -449,7 +449,7 @@ def monitor_heartbeats():
         })
         consumer.subscribe(['heartbeats'])
         
-        print("👂 Listening for worker heartbeats...")
+        print("\U0001f442 Listening for worker heartbeats...")
         
         while True:
             msg = consumer.poll(1.0)
@@ -457,7 +457,7 @@ def monitor_heartbeats():
                 continue
             if msg.error():
                 if msg.error().code() != KafkaError._PARTITION_EOF:
-                    print(f"❌ Consumer error: {msg.error()}")
+                    print(f"\u274c Consumer error: {msg.error()}")
                 continue
             
             try:
@@ -471,7 +471,7 @@ def monitor_heartbeats():
                 active_workers.add(worker_id)
                 
             except Exception as e:
-                print(f"⚠️ Error processing heartbeat: {e}")
+                print(f"\u26a0\ufe0f Error processing heartbeat: {e}")
             
             # Clean up stale workers (no heartbeat in 10 seconds)
             now = datetime.now()
@@ -485,7 +485,7 @@ def monitor_heartbeats():
                     worker_status[wid]['status'] = 'inactive'
                     
     except Exception as e:
-        print(f"❌ Heartbeat monitor error: {e}")
+        print(f"\u274c Heartbeat monitor error: {e}")
 
 @app.route('/')
 def home():
@@ -528,7 +528,7 @@ def upload():
         return jsonify({'success': True, 'job_id': job_id})
     
     except Exception as e:
-        print(f"❌ Upload error: {e}")
+        print(f"\u274c Upload error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 def collect_results_async(job_id):
@@ -549,21 +549,21 @@ def collect_results_async(job_id):
         timeout_start = time.time()
         timeout = 300  # 5 minutes timeout
         
-        print(f"⏳ Job {job_id}: Waiting for {total_tiles} processed tiles...")
+        print(f"\u23f3 Job {job_id}: Waiting for {total_tiles} processed tiles...")
         
         while len(processed) < total_tiles:
             # Check timeout
             if time.time() - timeout_start > timeout:
                 processing_jobs[job_id]['status'] = 'error'
                 processing_jobs[job_id]['error'] = 'Timeout waiting for results'
-                print(f"⏰ Job {job_id}: Timeout")
+                print(f"\u23f0 Job {job_id}: Timeout")
                 break
             
             msg = consumer.poll(1.0)
             if msg is None:
                 continue
             if msg.error():
-                print(f"❌ Consumer error: {msg.error()}")
+                print(f"\u274c Consumer error: {msg.error()}")
                 continue
             
             try:
@@ -576,10 +576,10 @@ def collect_results_async(job_id):
                 
                 processed.append(tile)
                 processing_jobs[job_id]['completed_tiles'] = len(processed)
-                print(f"📥 Job {job_id}: Received {len(processed)}/{total_tiles} tiles")
+                print(f"\U0001f4e5 Job {job_id}: Received {len(processed)}/{total_tiles} tiles")
                 
             except Exception as e:
-                print(f"⚠️ Error processing result: {e}")
+                print(f"\u26a0\ufe0f Error processing result: {e}")
         
         consumer.close()
         
@@ -592,10 +592,10 @@ def collect_results_async(job_id):
             
             processing_jobs[job_id]['status'] = 'complete'
             processing_jobs[job_id]['output_path'] = output_path
-            print(f"✅ Job {job_id}: Complete!")
+            print(f"\u2705 Job {job_id}: Complete!")
         
     except Exception as e:
-        print(f"❌ Job {job_id} error: {e}")
+        print(f"\u274c Job {job_id} error: {e}")
         processing_jobs[job_id]['status'] = 'error'
         processing_jobs[job_id]['error'] = str(e)
 
@@ -658,7 +658,7 @@ def dashboard_data():
     
     jobs = [
         {
-            'id': jid.replace('job_', '')[-8:],
+            'id': jid,
             'progress': int((job['completed_tiles'] / job['total_tiles']) * 100) if job['total_tiles'] > 0 else 0,
             'status': 'processing' if job['status'] == 'processing' else 'active',
             'completed': job['completed_tiles'],
@@ -679,9 +679,9 @@ if __name__ == '__main__':
     monitor_thread = threading.Thread(target=monitor_heartbeats, daemon=True)
     monitor_thread.start()
     
-    print("🚀 Starting Image Processing Pipeline UI...")
-    print(f"🔗 Broker: {BROKER}")
-    print("📊 Dashboard available at http://0.0.0.0:5000")
+    print("\U0001f680 Starting Image Processing Pipeline UI...")
+    print(f"\U0001f517 Broker: {BROKER}")
+    print("\U0001f4ca Dashboard available at http://0.0.0.0:5000")
     print("=" * 50)
     
     app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
