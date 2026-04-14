@@ -70,7 +70,7 @@ Make sure you have the following installed:
 ### 2️⃣ Install Dependencies
 Clone the repository and install all dependencies:
 ```bash
-git clone https://github.com/bidisha1005/73_project3_BD.git
+git clone https://github.com/Anushka-Mandal/73_project3_BD.git
 cd 73_project3_BD
 pip install kafka-python confluent-kafka flask opencv-python pillow numpy
 ````
