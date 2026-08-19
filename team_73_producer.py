@@ -58,6 +58,19 @@ def publish_tiles(tiles, job_id):
     producer.flush()
     print(f"\U0001f3af All {len(tiles)} tiles published to Kafka for job {job_id}")
 
+'''
+def publish_tiles(tiles, job_id):
+    for tile in tiles:
+        tile["job_id"] = job_id
+
+        producer.produce(
+            topic="tasks",
+            value=json.dumps(tile).encode("utf-8")
+        )
+
+    producer.flush()
+'''
+
 # -----------------------------
 # Collect processed results
 # -----------------------------
